@@ -24,7 +24,7 @@
 익스텐션(프론트엔드)에서는 Supabase DB로 직접 접근하지 않습니다. 모든 API Key와 인증 헤더를 클라이언트에서 제거하였으며 오직 데이터 접근용 단일 URL(Edge Function)만 사용합니다.
 
 - **Frontend**: 오로지 `EDGE_FUNCTION_URL` 하나로 Unauthenticated GET/POST 요청을 보냅니다. 소스 코드를 깃허브(Public)에 공개해도 데이터베이스 공격 우려가 없습니다.
-- **Backend (Deno Edge Function)**: 사용자로부터 들어오는 텍스트 길이나 스팸 등을 **사전 검증(Validation)**한 뒤, 함수 내부에서만 가지고 있는 `SERVICE_ROLE_KEY`를 사용해 DB의 RLS를 우회하여 데이터를 전달합니다.
+- **Backend (Deno Edge Function)**: 사용자로부터 들어오는 텍스트 길이나 스팸 등을 **사전 검증(Validation)** 한 뒤, 함수 내부에서만 가지고 있는 `SERVICE_ROLE_KEY`를 사용해 DB의 RLS를 우회하여 데이터를 전달합니다.
 - **Database**: 모든 RLS 정책(공개 쓰기/읽기)은 삭제되어 외부와의 직접 연결은 100% 차단됩니다.
 
 ### 2. AI 자동 우회 (폭포수 폴백) 전략
