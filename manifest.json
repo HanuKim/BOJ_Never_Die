@@ -1,0 +1,45 @@
+{
+  "manifest_version": 3,
+  "name": "BOJ Never Die",
+  "version": "1.0.0",
+  "description": "백준 문제 페이지에서 코드를 즉시 실행·채점하고, AI와 사용자들이 만든 엣지 테스트 케이스(반례)를 확인해 보세요!",
+  "permissions": [
+    "sidePanel",
+    "activeTab",
+    "storage",
+    "scripting"
+  ],
+  "host_permissions": [
+    "https://www.acmicpc.net/*",
+    "https://wandbox.org/*",
+    "https://api.anthropic.com/*",
+    "https://generativelanguage.googleapis.com/*",
+    "https://api.openai.com/*",
+    "https://*.supabase.co/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://www.acmicpc.net/problem/*"
+      ],
+      "js": [
+        "content.js"
+      ],
+      "run_at": "document_idle"
+    }
+  ],
+  "side_panel": {
+    "default_path": "sidepanel/sidepanel.html"
+  },
+  "action": {
+    "default_title": "BOJ Never Die 열기",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  }
+}

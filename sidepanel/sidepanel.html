@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>BOJ Never Die</title>
+  <link rel="stylesheet" href="sidepanel.css" />
+</head>
+
+<body>
+
+  <!-- ── 헤더 ─────────────────────────────────────── -->
+  <header class="header">
+    <div class="header-left">
+      <span class="logo">⚡ BOJ Never Die</span>
+      <span id="problemBadge" class="badge hidden"></span>
+    </div>
+    <button id="reloadBtn" class="icon-btn" title="문제 다시 불러오기">↺</button>
+  </header>
+
+  <!-- ── 문제 정보 ──────────────────────────────────── -->
+  <div id="problemInfo" class="problem-info hidden">
+    <span id="problemTitle" class="problem-title"></span>
+    <div class="problem-meta">
+      <span id="timeLimit" class="meta-chip">⏱ —</span>
+      <span id="memLimit" class="meta-chip">💾 —</span>
+      <span id="tcCount" class="meta-chip">📝 예제 0개</span>
+    </div>
+  </div>
+
+  <div id="noProblem" class="no-problem">
+    <p>📄 BOJ 문제 페이지를 열고<br><strong>↺</strong> 버튼을 누르세요.</p>
+  </div>
+
+  <!-- ── 탭 내비게이션 ──────────────────────────────── -->
+  <nav class="tab-nav">
+    <button class="tab-btn active" data-tab="judge">채점</button>
+    <button class="tab-btn" data-tab="hidden">히든 케이스</button>
+    <button class="tab-btn" data-tab="feedback">피드백</button>
+    <button class="tab-btn" data-tab="settings">설정</button>
+  </nav>
+
+  <!-- ═══════════════════════════════════════════════ -->
+  <!--  탭 1 : 채점                                    -->
+  <!-- ═══════════════════════════════════════════════ -->
+  <section id="tab-judge" class="tab-content active">
+
+    <div class="toolbar">
+      <select id="langSelect" class="select">
+        <option value="cpp17">C++17</option>
+        <option value="cpp14">C++14</option>
+        <option value="python3" selected>Python 3</option>
+        <option value="java">Java</option>
+        <option value="javascript">JavaScript (Node)</option>
+        <option value="c">C</option>
+        <option value="kotlin">Kotlin</option>
+        <option value="go">Go</option>
+        <option value="rust">Rust</option>
+        <option value="ruby">Ruby</option>
+      </select>
+      <button id="runBtn" class="btn btn-primary" disabled>▶ 채점 실행</button>
+    </div>
+
+    <!-- 코드 에디터 -->
+    <div class="editor-container">
+      <div class="editor-lines" id="editorLines">1</div>
+      <textarea id="codeEditor" class="editor-textarea" placeholder="// 여기에 코드를 입력하세요" spellcheck="false"
+        autocomplete="off" autocorrect="off"></textarea>
+    </div>
+
+    <!-- 진행 상태 -->
+    <div id="judgeProgress" class="progress-bar hidden">
+      <div id="progressFill" class="progress-fill"></div>
+      <span id="progressLabel" class="progress-label">채점 중…</span>
+    </div>
+
+    <!-- 결과 요약 -->
+    <div id="resultSummary" class="result-summary hidden"></div>
+
+    <!-- 케이스별 결과 -->
+    <div id="resultList" class="result-list"></div>
+
+  </section>
+
+  <!-- ═══════════════════════════════════════════════ -->
+  <!--  탭 2 : 히든 케이스                              -->
+  <!-- ═══════════════════════════════════════════════ -->
+  <section id="tab-hidden" class="tab-content">
+
+    <div class="section-card">
+      <h3 class="section-title">🤖 AI 히든 케이스 생성</h3>
+      <p class="section-desc">선택한 AI 모델을 사용해 경계값·극단값 히든 케이스를 자동 생성합니다.</p>
+      <select id="aiProviderSelect" class="select" style="margin-bottom:8px;">
+        <option value="claude" selected>Claude</option>
+        <option value="gemini">Gemini</option>
+        <option value="openai">OpenAI</option>
+      </select>
+      <div class="input-row">
+        <input id="aiKeyInput" type="password" class="input" placeholder="API Key 입력" />
+        <button id="generateBtn" class="btn btn-ai" disabled>✨ 생성</button>
+      </div>
+      <p class="section-desc-alert">* AI가 생성한 히든 케이스는 부정확 할 수 있습니다.</p>
+      <div id="aiStatus" class="status-msg"></div>
+    </div>
+
+    <div class="section-card">
+      <h3 class="section-title">🌐 커뮤니티 케이스</h3>
+      <button id="loadCommunityBtn" class="btn btn-ghost" disabled>불러오기</button>
+      <div id="communityList" class="community-list"></div>
+    </div>
+
+  </section>
+
+  <!-- ═══════════════════════════════════════════════ -->
+  <!--  탭 3 : 피드백                                   -->
+  <!-- ═══════════════════════════════════════════════ -->
+  <section id="tab-feedback" class="tab-content">
+
+    <div class="section-card">
+      <h3 class="section-title">📬 테스트케이스 제출</h3>
+      <p class="section-desc">추가 테스트케이스가 있다면 공유해주세요.</p>
+
+      <label class="field-label">입력값</label>
+      <textarea id="fbInput" class="input monospace" rows="4" placeholder="입력값을 입력하세요"></textarea>
+
+      <label class="field-label">기댓값 (출력)</label>
+      <textarea id="fbOutput" class="input monospace" rows="3" placeholder="예상 출력값을 입력하세요"></textarea>
+
+      <label class="field-label">설명 (선택)</label>
+      <input id="fbDesc" type="text" class="input" placeholder="예: 최솟값 경계 케이스" />
+
+      <label class="field-label">제출자 닉네임 (선택)</label>
+      <input id="fbAuthor" type="text" class="input" placeholder="anonymous" />
+
+      <div id="fbStatus" class="status-msg"></div>
+      <button id="submitFbBtn" class="btn btn-primary full-width" disabled>제출하기</button>
+    </div>
+
+    <div class="section-card">
+      <h3 class="section-title">💌 피드백 전달하기</h3>
+      <p class="section-desc">문의사항이나 버그가 있다면 아래 버튼을 눌러 메일을 보내주세요.</p>
+      <a href="mailto:dev.hanulkim@gmail.com" class="btn btn-ghost">이메일 보내기</a>
+    </div>
+
+  </section>
+
+  <!-- ═══════════════════════════════════════════════ -->
+  <!--  탭 4 : 설정                                    -->
+  <!-- ═══════════════════════════════════════════════ -->
+  <section id="tab-settings" class="tab-content">
+
+    <div class="section-card">
+      <h3 class="section-title">🔑 AI API 키 설정</h3>
+      <label class="field-label">AI 제공자</label>
+      <select id="settingsAiProvider" class="select" style="margin-bottom:8px;">
+        <option value="claude" selected>Claude</option>
+        <option value="gemini">Gemini</option>
+        <option value="openai">OpenAI</option>
+      </select>
+      <label class="field-label">API Key</label>
+      <input id="settingsAiKey" type="password" class="input" placeholder="API Key 입력" />
+      <p class="hint">히든 케이스 자동 생성에 사용됩니다.</p>
+    </div>
+
+    <div class="section-card">
+      <h3 class="section-title">⚙️ 채점 옵션</h3>
+      <label class="field-label">타임아웃 (초)</label>
+      <input id="settingsTimeout" type="number" class="input" value="10" min="1" max="30" />
+      <label class="toggle-label">
+        <input type="checkbox" id="settingsTrimOutput" checked />
+        출력 앞뒤 공백 무시
+      </label>
+      <label class="toggle-label">
+        <input type="checkbox" id="settingsIgnoreCase" />
+        대소문자 무시
+      </label>
+    </div>
+
+    <button id="saveSettingsBtn" class="btn btn-primary full-width">💾 저장</button>
+    <div id="settingsStatus" class="status-msg"></div>
+
+  </section>
+
+  <script src="sidepanel.js"></script>
+</body>
+
+</html>

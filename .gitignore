@@ -1,0 +1,16 @@
+# Mac OS
+.DS_Store
+
+# Supabase Local & Backend
+supabase/
+supabase-edge-function.ts
+.env
+
+# Editor / IDE
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
