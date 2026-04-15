@@ -6,8 +6,7 @@
   "permissions": [
     "sidePanel",
     "activeTab",
-    "storage",
-    "scripting"
+    "storage"
   ],
   "host_permissions": [
     "https://www.acmicpc.net/*",
