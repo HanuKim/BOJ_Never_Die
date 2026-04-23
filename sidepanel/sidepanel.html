@@ -16,7 +16,13 @@
       <span class="logo">⚡ BOJ Never Die</span>
       <span id="problemBadge" class="badge hidden"></span>
     </div>
-    <button id="reloadBtn" class="icon-btn" title="문제 다시 불러오기">↺</button>
+    <div class="header-right">
+      <div id="githubPushStatus" class="status-msg header-status"></div>
+      <button id="uploadGithubBtn" class="icon-btn" title="GitHub에 코드 업로드" style="display:none;">
+        <img src="../icons/git.png" alt="깃허브 업로드" style="width:16px; filter:brightness(0) invert(1);" />
+      </button>
+      <button id="reloadBtn" class="icon-btn" title="문제 다시 불러오기">↺</button>
+    </div>
   </header>
 
   <!-- ── 문제 정보 ──────────────────────────────────── -->
@@ -165,6 +171,19 @@
 
     <div class="section-card">
       <h3 class="section-title">⚙️ 채점 옵션</h3>
+      <label class="field-label">기본 언어</label>
+      <select id="settingsDefaultLang" class="select" style="margin-bottom:8px;">
+        <option value="cpp17">C++17</option>
+        <option value="cpp14">C++14</option>
+        <option value="python3" selected>Python 3</option>
+        <option value="java">Java</option>
+        <option value="javascript">JavaScript (Node)</option>
+        <option value="c">C</option>
+        <option value="kotlin">Kotlin</option>
+        <option value="go">Go</option>
+        <option value="rust">Rust</option>
+        <option value="ruby">Ruby</option>
+      </select>
       <label class="field-label">타임아웃 (초)</label>
       <input id="settingsTimeout" type="number" class="input" value="10" min="1" max="30" />
       <label class="toggle-label">
@@ -175,6 +194,35 @@
         <input type="checkbox" id="settingsIgnoreCase" />
         대소문자 무시
       </label>
+    </div>
+
+    <div class="section-card">
+      <h3 class="section-title"> <img src="../icons/git.png" alt="github"
+          style="width:16px; filter:brightness(0) invert(1);" /> GitHub 연동
+      </h3>
+      <p class="hint" style="margin-bottom:8px;">채점 후 코드를 GitHub 저장소에 자동 푸시합니다.</p>
+
+      <!-- 미연동 상태 -->
+      <div id="githubAuthSection">
+        <button id="githubAuthBtn" class="btn btn-github full-width"
+          style="display:flex; align-items:center; justify-content:center; gap:8px;">
+          🔗 Authorize with GitHub
+        </button>
+      </div>
+
+      <!-- 연동 완료 상태 -->
+      <div id="githubConnectedSection" style="display:none;">
+        <div class="github-connected-info">
+          <span id="githubUserDisplay" class="github-user-badge"></span>
+          <button id="githubDisconnectBtn" class="btn btn-ghost btn-sm">연동 해제</button>
+        </div>
+        <label class="field-label">저장소 이름</label>
+        <input id="settingsGithubRepo" type="text" class="input" placeholder="예: coding_test" />
+        <label class="field-label">저장 경로 (선택)</label>
+        <input id="settingsGithubPath" type="text" class="input" placeholder="예: 백준 (기본값: 백준)" />
+      </div>
+
+      <div id="githubStatus" class="status-msg"></div>
     </div>
 
     <button id="saveSettingsBtn" class="btn btn-primary full-width">💾 저장</button>

@@ -5,8 +5,9 @@
 // ── 확장 프로그램 하드코딩 설정 (개발자용) ─────────────────────
 // 보안을 위해 API Key 노출을 제거하고, Edge Function 주소 하나로 통합 관리합니다.
 const CONFIG = {
-  // Edge Function 배포 후 얻게 될 API 호스팅 주소입니다.
   EDGE_FUNCTION_URL: 'https://jkqkjjchhesuyvjbwzqk.supabase.co/functions/v1/boj-api',
+  GITHUB_OAUTH_URL: 'https://jkqkjjchhesuyvjbwzqk.supabase.co/functions/v1/github-oauth',
+  GITHUB_CLIENT_ID: 'Ov23liy3LjO6MFuU9wOJ',
 };
 
 // ── 언어 설정 (Wandbox API 기준) ──────────────────────────────
@@ -30,6 +31,7 @@ let settings = {};
 
 // AI API Key는 메모리(세션)에만 보관 — 디스크 미저장, 동기화 없음
 const SESSION_KEY_NAME = 'boj_never_die_api_key';
+let isKeyMasked = false;
 
 // ── DOM 참조 ──────────────────────────────────────────────────
 const $ = id => document.getElementById(id);
@@ -70,11 +72,23 @@ const dom = {
   // 설정
   settingsAiProvider: $('settingsAiProvider'),
   settingsAiKey: $('settingsAiKey'),
+  settingsDefaultLang: $('settingsDefaultLang'),
   settingsTimeout: $('settingsTimeout'),
   settingsTrimOutput: $('settingsTrimOutput'),
   settingsIgnoreCase: $('settingsIgnoreCase'),
   saveSettingsBtn: $('saveSettingsBtn'),
   settingsStatus: $('settingsStatus'),
+  // GitHub
+  uploadGithubBtn: $('uploadGithubBtn'),
+  githubPushStatus: $('githubPushStatus'),
+  githubAuthBtn: $('githubAuthBtn'),
+  githubAuthSection: $('githubAuthSection'),
+  githubConnectedSection: $('githubConnectedSection'),
+  githubUserDisplay: $('githubUserDisplay'),
+  githubDisconnectBtn: $('githubDisconnectBtn'),
+  settingsGithubRepo: $('settingsGithubRepo'),
+  settingsGithubPath: $('settingsGithubPath'),
+  githubStatus: $('githubStatus'),
 };
 
 // ══════════════════════════════════════════════════════════════
@@ -105,48 +119,75 @@ async function loadSettings() {
   // API Key를 제외한 환경 설정만 chrome.storage.sync에서 불러옵니다.
   settings = await chrome.storage.sync.get({
     aiProvider: 'claude',
+    defaultLang: 'python3',
     timeout: 10,
     trimOutput: true,
     ignoreCase: false,
   });
   dom.settingsAiProvider.value = settings.aiProvider;
+  dom.settingsDefaultLang.value = settings.defaultLang;
   dom.settingsTimeout.value = settings.timeout;
   dom.settingsTrimOutput.checked = settings.trimOutput;
   dom.settingsIgnoreCase.checked = settings.ignoreCase;
 
+  // 기본 언어를 채점 탭 드롭다운에 적용
+  dom.langSelect.value = settings.defaultLang;
+
   // 세션에 저장된 키가 있으면 마스킹 표시, 없으면 빈칸
   const savedKey = getSessionApiKey();
-  dom.settingsAiKey.value = savedKey ? '●'.repeat(20) : '';
-  dom.settingsAiKey.placeholder = savedKey
-    ? '키가 세션에 저장되어 있음 (새로 입력 시 덮어쓸)'
-    : 'API Key 입력 (탭을 닫으면 자동 삭제)';
+  if (savedKey) {
+    dom.settingsAiKey.value = '●'.repeat(20);
+    dom.settingsAiKey.placeholder = '키가 세션에 저장되어 있음 (새로 입력 시 덮어쓰기)';
+    isKeyMasked = true;
+  } else {
+    dom.settingsAiKey.value = '';
+    dom.settingsAiKey.placeholder = 'API Key 입력 (탭을 닫으면 자동 삭제)';
+    isKeyMasked = false;
+  }
 
   // 히든 탭 제공자/키 입력란 동기화
   dom.aiProviderSelect.value = settings.aiProvider;
-  // 키 값 자체는 표시 안 함 — 이후 getSessionApiKey()로만 사용
+
+  // GitHub 설정 불러오기
+  dom.settingsGithubRepo.value = settings.githubRepo || '';
+  dom.settingsGithubPath.value = settings.githubPath || '';
+  await updateGithubUI();
 }
 
 async function saveSettings() {
-  // AI Key: 자판 문자라면 이미 저장된 키 유지, 새로 입력 시에만 갱신
   const rawInput = dom.settingsAiKey.value.trim();
-  const isMasked = rawInput === '●'.repeat(20) || rawInput === '';
-  if (!isMasked) {
+  // 마스킹 상태이거나 빈 칸이면 기존 키 유지, 새로 입력한 경우에만 갱신
+  if (!isKeyMasked && rawInput !== '') {
     setSessionApiKey(rawInput);
   }
 
   // API Key를 제외한 나머지 환경 설정만 영구 저장
   settings = {
     aiProvider: dom.settingsAiProvider.value,
+    defaultLang: dom.settingsDefaultLang.value,
     timeout: parseInt(dom.settingsTimeout.value) || 10,
     trimOutput: dom.settingsTrimOutput.checked,
     ignoreCase: dom.settingsIgnoreCase.checked,
+    githubRepo: dom.settingsGithubRepo.value.trim(),
+    githubPath: dom.settingsGithubPath.value.trim(),
   };
   await chrome.storage.sync.set(settings);
 
+  // 기본 언어를 채점 탭에도 즉시 반영
+  dom.langSelect.value = settings.defaultLang;
+
   dom.aiProviderSelect.value = settings.aiProvider;
-  // 마스링 다시 표시
+  // AI Key 마스킹 다시 표시
   const saved = getSessionApiKey();
-  dom.settingsAiKey.value = saved ? '●'.repeat(20) : '';
+  if (saved) {
+    dom.settingsAiKey.value = '●'.repeat(20);
+    isKeyMasked = true;
+  } else {
+    dom.settingsAiKey.value = '';
+    isKeyMasked = false;
+  }
+
+  updateGithubBtnVisibility();
 
   setStatus(dom.settingsStatus, '✅ 저장 완료 (키는 탭을 닫으면 자동 삭제됩니다)', 'ok');
   updateButtonStates();
@@ -157,14 +198,41 @@ async function saveSettings() {
 // ══════════════════════════════════════════════════════════════
 async function refreshProblemData() {
   try {
+    // 현재 활성화된 탭을 명확히 찾아서 요청함
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    if (!tab || !tab.url || !tab.url.includes('acmicpc.net/problem/')) {
+      showNoProblem('백준 문제 페이지를 열어주세요.');
+      return;
+    }
+
     const response = await new Promise((resolve) => {
-      chrome.runtime.sendMessage({ type: 'GET_PROBLEM_DATA' }, resolve);
+      chrome.tabs.sendMessage(tab.id, { type: 'GET_PROBLEM_DATA' }, (res) => {
+        if (chrome.runtime.lastError) resolve({ error: '데이터를 가져올 수 없습니다. 페이지를 새로고침 해보세요.' });
+        else resolve(res);
+      });
     });
 
     if (!response || response.error || !response.problemNumber) {
       showNoProblem(response?.error);
       return;
     }
+
+    // solved.ac API로 정확한 난이도·분류 가져오기
+    try {
+      const solvedResp = await fetch(`https://solved.ac/api/v3/problem/show?problemId=${response.problemNumber}`);
+      if (solvedResp.ok) {
+        const solvedData = await solvedResp.json();
+        response.tier = TIER_NAMES[solvedData.level] || 'Unrated';
+        response.tierGroup = TIER_GROUPS[solvedData.level] || 'Unrated';
+        // 태그 정보 (ko 우선, 없으면 en)
+        if (solvedData.tags && solvedData.tags.length > 0) {
+          response.tags = solvedData.tags.map(t => {
+            const ko = t.displayNames?.find(d => d.language === 'ko');
+            return ko ? ko.name : (t.displayNames?.[0]?.name || t.key);
+          }).join(', ');
+        }
+      }
+    } catch (_) { /* solved.ac 실패해도 문제 데이터는 그대로 사용 */ }
 
     problemData = response;
     renderProblemInfo();
@@ -178,6 +246,26 @@ async function refreshProblemData() {
     showNoProblem('문제 데이터를 가져오는 중 오류 발생');
   }
 }
+
+// solved.ac 난이도 매핑 (level 0~30)
+const TIER_NAMES = {
+  0: 'Unrated',
+  1: 'Bronze V', 2: 'Bronze IV', 3: 'Bronze III', 4: 'Bronze II', 5: 'Bronze I',
+  6: 'Silver V', 7: 'Silver IV', 8: 'Silver III', 9: 'Silver II', 10: 'Silver I',
+  11: 'Gold V', 12: 'Gold IV', 13: 'Gold III', 14: 'Gold II', 15: 'Gold I',
+  16: 'Platinum V', 17: 'Platinum IV', 18: 'Platinum III', 19: 'Platinum II', 20: 'Platinum I',
+  21: 'Diamond V', 22: 'Diamond IV', 23: 'Diamond III', 24: 'Diamond II', 25: 'Diamond I',
+  26: 'Ruby V', 27: 'Ruby IV', 28: 'Ruby III', 29: 'Ruby II', 30: 'Ruby I',
+};
+const TIER_GROUPS = {
+  0: 'Unrated',
+  1: 'Bronze', 2: 'Bronze', 3: 'Bronze', 4: 'Bronze', 5: 'Bronze',
+  6: 'Silver', 7: 'Silver', 8: 'Silver', 9: 'Silver', 10: 'Silver',
+  11: 'Gold', 12: 'Gold', 13: 'Gold', 14: 'Gold', 15: 'Gold',
+  16: 'Platinum', 17: 'Platinum', 18: 'Platinum', 19: 'Platinum', 20: 'Platinum',
+  21: 'Diamond', 22: 'Diamond', 23: 'Diamond', 24: 'Diamond', 25: 'Diamond',
+  26: 'Ruby', 27: 'Ruby', 28: 'Ruby', 29: 'Ruby', 30: 'Ruby',
+};
 
 function renderProblemInfo() {
   dom.problemBadge.textContent = `#${problemData.problemNumber}`;
@@ -360,20 +448,38 @@ function setupEditor() {
 // ══════════════════════════════════════════════════════════════
 function setupEventListeners() {
   dom.reloadBtn.addEventListener('click', refreshProblemData);
+
+  // 탭 변경이나 URL 이동 감지 시 즉시 인식
+  chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
+    if (changeInfo.status === 'complete' && tab.active) refreshProblemData();
+  });
+  chrome.tabs.onActivated.addListener(() => refreshProblemData());
+
   dom.runBtn.addEventListener('click', runJudge);
   dom.generateBtn.addEventListener('click', generateHiddenCases);
   dom.loadCommunityBtn.addEventListener('click', loadCommunityCases);
   dom.submitFbBtn.addEventListener('click', submitFeedback);
   dom.saveSettingsBtn.addEventListener('click', saveSettings);
+  dom.uploadGithubBtn.addEventListener('click', pushToGithub);
+  dom.githubAuthBtn.addEventListener('click', authenticateGithub);
+  dom.githubDisconnectBtn.addEventListener('click', disconnectGithub);
 
   // AI 키/제공자 변경 -> generateBtn 상태 수시 업데이트
-  // 히든 탭의 짧은 키 입력란: 키를 sessionStorage에 바로 쓰고 비활성화된 버튼 업데이트
+  // 히든 탭의 짧은 키 입력란: 포커스 잃을 때(blur)만 저장 — 타이핑 중간값 저장 방지
   dom.aiKeyInput.addEventListener('input', () => {
-    const val = dom.aiKeyInput.value.trim();
-    if (val) setSessionApiKey(val);
     updateButtonStates();
   });
-  // 설정 탭의 키 입력란: 카운트 업데이트만 (저장은 saveSettings에서)
+  dom.aiKeyInput.addEventListener('blur', () => {
+    const val = dom.aiKeyInput.value.trim();
+    if (val) setSessionApiKey(val);
+  });
+  // 설정 탭의 키 입력란: 포커스 시 마스킹 해제, 저장은 saveSettings에서
+  dom.settingsAiKey.addEventListener('focus', () => {
+    if (isKeyMasked) {
+      dom.settingsAiKey.value = '';
+      isKeyMasked = false;
+    }
+  });
   dom.settingsAiKey.addEventListener('input', () => {
     updateButtonStates();
   });
@@ -472,6 +578,9 @@ async function runJudge() {
 
   const allCases = [...baseCases, ...commCases, ...aiCases];
 
+  // 채점 시작 전 성능 초기화
+  lastJudgePerformance = { time: 0, memory: 0 };
+
   await judgeTestCases(
     allCases,
     dom.codeEditor.value,
@@ -483,6 +592,9 @@ async function runJudge() {
     dom.progressLabel,
     ''
   );
+
+  // 채점 완료 후 GitHub 업로드 버튼 표시
+  updateGithubBtnVisibility();
 }
 
 async function judgeTestCases(cases, code, langKey, listEl, summaryEl, progressEl, fillEl, labelEl, prefix) {
@@ -542,6 +654,13 @@ async function judgeTestCases(cases, code, langKey, listEl, summaryEl, progressE
     if (status === 'pass') passCount++;
     results.push({ tc, status, actual, execTime, index: i + 1 });
 
+    // 성능 기록 (최대값 갱신)
+    if (status === 'pass') {
+      lastJudgePerformance.time = Math.max(lastJudgePerformance.time, execTime);
+      // Wandbox/Piston은 메모리 미반환하므로 문제의 제한치 일부를 사용하거나 0으로 둠
+      lastJudgePerformance.memory = 0;
+    }
+
     // 카드 렌더링
     listEl.appendChild(makeResultCard(results[results.length - 1], prefix));
   }
@@ -572,7 +691,7 @@ function makeResultCard({ tc, status, actual, execTime, index }, prefix) {
   card.className = 'result-card';
   card.innerHTML = `
     <div class="result-card-header">
-      <span class="result-label">${tc.label || (prefix + ' ' + index)}${tc.description ? ` — ${tc.description}` : ''}</span>
+      <span class="result-label">${escHtml(tc.label || (prefix + ' ' + index))}${tc.description ? ` — ${escHtml(tc.description)}` : ''}</span>
       <span class="result-status ${cls}">${label}</span>
     </div>
     <div class="result-card-body">
@@ -625,8 +744,10 @@ async function generateHiddenCases() {
         try {
           return await fetcherFn(model);
         } catch (e) {
-          // 상태 코드가 포함된 에러(429, 503, 500 등)거나 할당량 만료일 경우 다음 모델로 넘어감
-          if (e.message.includes('429') || e.message.includes('503') || e.message.includes('500') || e.message.includes('초과') || e.message.includes('Quota')) {
+          // HTTP 상태 코드 또는 할당량 만료 키워드에 해당하면 다음 모델로 넘어감
+          const retryable = [429, 503, 500].includes(e.status)
+            || e.message.includes('Quota') || e.message.includes('초과');
+          if (retryable) {
             lastErr = e;
             setStatus(dom.aiStatus, `⚠️ ${model} 한도 초과/오류. 대체 모델 시도 중…`, 'loading');
             continue;
@@ -655,11 +776,13 @@ async function generateHiddenCases() {
         });
         if (!resp.ok) {
           const err = await resp.json();
-          throw new Error(err.error?.message || `Claude API 오류 ${resp.status}`);
+          const e = new Error(err.error?.message || `Claude API 오류 ${resp.status}`);
+          e.status = resp.status;
+          throw e;
         }
         const data = await resp.json();
         return data.content?.[0]?.text ?? '';
-      }, ['claude-sonnet-4-5-20250929', 'claude-haiku-4-5@20251001']);
+      }, ['claude-sonnet-4-5-20250929', 'claude-haiku-4-5-20251001']);
 
     } else if (provider === 'gemini') {
       text = await executeProviderWithFallback(async (model) => {
@@ -673,7 +796,9 @@ async function generateHiddenCases() {
         });
         if (!resp.ok) {
           const err = await resp.json();
-          throw new Error(err.error?.message || `Gemini API 오류 ${resp.status}`);
+          const e = new Error(err.error?.message || `Gemini API 오류 ${resp.status}`);
+          e.status = resp.status;
+          throw e;
         }
         const data = await resp.json();
         return data.candidates?.[0]?.content?.parts?.[0]?.text ?? '';
@@ -694,7 +819,9 @@ async function generateHiddenCases() {
         });
         if (!resp.ok) {
           const err = await resp.json();
-          throw new Error(err.error?.message || `OpenAI API 오류 ${resp.status}`);
+          const e = new Error(err.error?.message || `OpenAI API 오류 ${resp.status}`);
+          e.status = resp.status;
+          throw e;
         }
         const data = await resp.json();
         return data.choices?.[0]?.message?.content ?? '';
@@ -882,6 +1009,197 @@ async function submitFeedback() {
 }
 
 // ══════════════════════════════════════════════════════════════
+//  GitHub OAuth 인증 & 푸시
+// ══════════════════════════════════════════════════════════════
+const LANG_EXT = {
+  cpp17: 'cpp', cpp14: 'cpp', python3: 'py', java: 'java',
+  javascript: 'js', c: 'c', kotlin: 'kt', go: 'go', rust: 'rs', ruby: 'rb',
+};
+
+// GitHub OAuth token은 chrome.storage.local에 영구 저장 (브라우저 닫아도 유지)
+// OAuth 토큰은 GitHub에서 언제든 revoke 가능하므로 영구 저장이 안전
+async function getGithubToken() {
+  const data = await chrome.storage.local.get({ githubToken: '', githubUser: '' });
+  return data;
+}
+async function setGithubToken(token, user) {
+  await chrome.storage.local.set({ githubToken: token, githubUser: user });
+}
+async function clearGithubToken() {
+  await chrome.storage.local.remove(['githubToken', 'githubUser']);
+}
+
+async function authenticateGithub() {
+  if (!CONFIG.GITHUB_CLIENT_ID) {
+    setStatus(dom.githubStatus, '❌ GITHUB_CLIENT_ID가 설정되지 않았습니다.', 'err');
+    return;
+  }
+
+  dom.githubAuthBtn.disabled = true;
+  dom.githubAuthBtn.textContent = '🔄 인증 중…';
+
+  try {
+    const redirectUrl = chrome.identity.getRedirectURL('github');
+    const authUrl = `https://github.com/login/oauth/authorize?client_id=${CONFIG.GITHUB_CLIENT_ID}&redirect_uri=${encodeURIComponent(CONFIG.GITHUB_OAUTH_URL)}&scope=repo&state=${encodeURIComponent(redirectUrl)}`;
+
+    const responseUrl = await new Promise((resolve, reject) => {
+      chrome.identity.launchWebAuthFlow(
+        { url: authUrl, interactive: true },
+        (url) => {
+          if (chrome.runtime.lastError) reject(new Error(chrome.runtime.lastError.message));
+          else resolve(url);
+        }
+      );
+    });
+
+    const token = new URL(responseUrl).searchParams.get('token');
+    if (!token) throw new Error('토큰을 받지 못했습니다.');
+
+    // 사용자 정보 조회
+    const userResp = await fetch('https://api.github.com/user', {
+      headers: { 'Authorization': `Bearer ${token}` },
+    });
+    if (!userResp.ok) throw new Error('GitHub 사용자 정보 조회 실패');
+    const user = await userResp.json();
+
+    await setGithubToken(token, user.login);
+    await updateGithubUI();
+    setStatus(dom.githubStatus, `✅ @${user.login} 연동 완료!`, 'ok');
+
+  } catch (e) {
+    setStatus(dom.githubStatus, `❌ ${e.message}`, 'err');
+  } finally {
+    dom.githubAuthBtn.disabled = false;
+    dom.githubAuthBtn.textContent = '🔗 Authorize with GitHub';
+  }
+}
+
+async function disconnectGithub() {
+  await clearGithubToken();
+  await updateGithubUI();
+  setStatus(dom.githubStatus, '연동이 해제되었습니다.', 'ok');
+}
+
+async function updateGithubUI() {
+  const { githubToken, githubUser } = await getGithubToken();
+  if (githubToken && githubUser) {
+    dom.githubAuthSection.style.display = 'none';
+    dom.githubConnectedSection.style.display = '';
+    dom.githubUserDisplay.textContent = `✅ @${githubUser} 연동됨`;
+  } else {
+    dom.githubAuthSection.style.display = '';
+    dom.githubConnectedSection.style.display = 'none';
+  }
+  updateGithubBtnVisibility();
+}
+
+async function updateGithubBtnVisibility() {
+  const { githubToken } = await getGithubToken();
+  const hasToken = !!githubToken;
+  const hasRepo = !!(settings.githubRepo);
+  const hasCode = dom.codeEditor.value.trim().length > 0;
+  const hasProblem = !!problemData;
+  dom.uploadGithubBtn.style.display = (hasToken && hasRepo && hasCode && hasProblem) ? '' : 'none';
+}
+
+async function pushToGithub() {
+  const { githubToken: token, githubUser } = await getGithubToken();
+  // 저장소 이름에 '/'가 없으면 GitHub 사용자명 자동 붙임
+  const repoName = settings.githubRepo;
+  const repo = repoName.includes('/') ? repoName : `${githubUser}/${repoName}`;
+  if (!token || !repo || !problemData) return;
+
+  const code = dom.codeEditor.value;
+  const lang = dom.langSelect.value;
+  const ext = LANG_EXT[lang] || 'txt';
+
+  // 1. 경로 계산: 백준/{tierGroup}/{num}. {title}/
+  const tierGroup = problemData.tierGroup || 'Unrated';
+  const tierFull = problemData.tier || 'Unrated';
+  const folderName = `${problemData.problemNumber}. ${problemData.title}`;
+  const basePath = settings.githubPath || '백준';
+  const dirPath = `${basePath}/${tierGroup}/${folderName}`;
+
+  const codePath = `${dirPath}/${folderName}.${ext}`;
+  const readmePath = `${dirPath}/README.md`;
+
+  dom.uploadGithubBtn.disabled = true;
+  setStatus(dom.githubPushStatus, '📤 GitHub에 업로드 중…', 'loading');
+
+  try {
+    const readmeContent = `# [${tierFull}] ${problemData.title} - ${problemData.problemNumber}
+
+[문제 링크](${problemData.url})
+
+### 분류
+${problemData.tags || '없음'}
+
+### 제출 일자
+${new Intl.DateTimeFormat('ko-KR', { dateStyle: 'long', timeStyle: 'medium' }).format(new Date())}
+
+### 문제 설명
+${htmlToMark(problemData.description)}
+
+### 입력
+${htmlToMark(problemData.inputDesc)}
+
+### 출력
+${htmlToMark(problemData.outputDesc)}
+`;
+
+    // 3. 파일 업로드 함수 (독립 커밋)
+    const uploadFile = async (path, content, message) => {
+      let sha = undefined;
+      const getResp = await fetch(`https://api.github.com/repos/${repo}/contents/${encodeURIComponent(path)}`, {
+        headers: { 'Authorization': `Bearer ${token}` },
+      });
+      if (getResp.ok) {
+        const existing = await getResp.json();
+        sha = existing.sha;
+      }
+      const b64 = btoa(unescape(encodeURIComponent(content)));
+      const resp = await fetch(`https://api.github.com/repos/${repo}/contents/${encodeURIComponent(path)}`, {
+        method: 'PUT',
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message, content: b64, ...(sha ? { sha } : {}) }),
+      });
+      if (!resp.ok) {
+        const err = await resp.json();
+        throw new Error(err.message || `API \uc624\ub958 ${resp.status}`);
+      }
+    };
+
+    // 4. README \uba3c\uc800 \uc5c5\ub85c\ub4dc
+    await uploadFile(readmePath, readmeContent, `Update README for [${problemData.problemNumber}] ${problemData.title}`);
+
+    // 5. 코드 업로드
+    const commitMsg = `[${tierFull}] Title: ${problemData.title} -BOJ Never Die`;
+    await uploadFile(codePath, code, commitMsg);
+
+    setStatus(dom.githubPushStatus, `\u2705 ${problemData.problemNumber}\ubc88 \uc5c5\ub85c\ub4dc \uc644\ub8cc!`, 'ok');
+  } catch (e) {
+    setStatus(dom.githubStatus, `\u274c ${e.message}`, 'err');
+    setStatus(dom.githubPushStatus, `\u274c \uc5c5\ub85c\ub4dc \uc2e4\ud328`, 'err');
+  } finally {
+    dom.uploadGithubBtn.disabled = false;
+  }
+}
+
+// 간단한 HTML -> Markdown 변환 (README용)
+function htmlToMark(html) {
+  if (!html) return '';
+  return html
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<\/p>/gi, '\n\n')
+    .replace(/<[^>]+>/g, '') // 태그 모두 제거
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&amp;/g, '&')
+    .trim();
+}
+
+// ══════════════════════════════════════════════════════════════
 //  유틸
 // ══════════════════════════════════════════════════════════════
 function escHtml(str) {
@@ -894,6 +1212,23 @@ function setStatus(el, msg, type) {
   if (type === 'ok' || type === 'err') {
     setTimeout(() => { if (el.textContent === msg) el.textContent = ''; }, 4000);
   }
+}
+
+// 언어별 시간 제한 배수 (백준 기준 준용)
+function getLangMultiplier(lang) {
+  const multipliers = {
+    'python3': 3,
+    'java': 2,
+    'kotlin': 2,
+    'javascript': 3,
+    'ruby': 3,
+    'cpp17': 1,
+    'cpp14': 1,
+    'c': 1,
+    'go': 2,
+    'rust': 1
+  };
+  return multipliers[lang] || 1;
 }
 
 // ══════════════════════════════════════════════════════════════

@@ -14,11 +14,18 @@ function extractProblemData() {
   const timeLimit  = limitCells[0]?.textContent?.trim() ?? '';
   const memLimit   = limitCells[1]?.textContent?.trim() ?? '';
 
-  // 문제 본문 텍스트 (Claude에게 넘길 용도, innerHTML 아닌 textContent)
-  const description    = document.querySelector('#problem_description')?.textContent?.trim() ?? '';
-  const inputDesc      = document.querySelector('#problem_input')?.textContent?.trim() ?? '';
-  const outputDesc     = document.querySelector('#problem_output')?.textContent?.trim() ?? '';
-  const conditionDesc  = document.querySelector('#problem_limit')?.textContent?.trim() ?? '';
+  // 난이도 (Tier) 추출 - 이미지 alt 태그나 브라우저 제목 등에서 파싱
+  const tierImg = document.querySelector('blockquote.container blockquote img.solvedac-tier');
+  const tier = tierImg ? tierImg.alt : 'Level Unknown';
+
+  // 문제 분류 (Tags)
+  const tags = Array.from(document.querySelectorAll('.problem-label')).map(el => el.textContent.trim()).join(', ');
+
+  // 문제 본문 (README용 HTML 포함)
+  const description    = document.querySelector('#problem_description')?.innerHTML?.trim() ?? '';
+  const inputDesc      = document.querySelector('#problem_input')?.innerHTML?.trim() ?? '';
+  const outputDesc     = document.querySelector('#problem_output')?.innerHTML?.trim() ?? '';
+  const conditionDesc  = document.querySelector('#problem_limit')?.innerHTML?.trim() ?? '';
 
   // 예제 입출력 전부 수집
   const testCases = [];
@@ -38,6 +45,8 @@ function extractProblemData() {
     title,
     timeLimit,
     memLimit,
+    tier,
+    tags,
     description,
     inputDesc,
     outputDesc,

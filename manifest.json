@@ -6,7 +6,9 @@
   "permissions": [
     "sidePanel",
     "activeTab",
-    "storage"
+    "storage",
+    "scripting",
+    "identity"
   ],
   "host_permissions": [
     "https://www.acmicpc.net/*",
@@ -14,6 +16,8 @@
     "https://api.anthropic.com/*",
     "https://generativelanguage.googleapis.com/*",
     "https://api.openai.com/*",
+    "https://api.github.com/*",
+    "https://solved.ac/*",
     "https://*.supabase.co/*"
   ],
   "background": {
