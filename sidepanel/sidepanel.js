@@ -123,6 +123,8 @@ async function loadSettings() {
     timeout: 10,
     trimOutput: true,
     ignoreCase: false,
+    githubRepo: '',
+    githubPath: '',
   });
   dom.settingsAiProvider.value = settings.aiProvider;
   dom.settingsDefaultLang.value = settings.defaultLang;
@@ -578,8 +580,6 @@ async function runJudge() {
 
   const allCases = [...baseCases, ...commCases, ...aiCases];
 
-  // 채점 시작 전 성능 초기화
-  lastJudgePerformance = { time: 0, memory: 0 };
 
   await judgeTestCases(
     allCases,
@@ -654,12 +654,6 @@ async function judgeTestCases(cases, code, langKey, listEl, summaryEl, progressE
     if (status === 'pass') passCount++;
     results.push({ tc, status, actual, execTime, index: i + 1 });
 
-    // 성능 기록 (최대값 갱신)
-    if (status === 'pass') {
-      lastJudgePerformance.time = Math.max(lastJudgePerformance.time, execTime);
-      // Wandbox/Piston은 메모리 미반환하므로 문제의 제한치 일부를 사용하거나 0으로 둠
-      lastJudgePerformance.memory = 0;
-    }
 
     // 카드 렌더링
     listEl.appendChild(makeResultCard(results[results.length - 1], prefix));

@@ -7,7 +7,6 @@
     "sidePanel",
     "activeTab",
     "storage",
-    "scripting",
     "identity"
   ],
   "host_permissions": [

@@ -1,6 +1,6 @@
 # Privacy Policy — BOJ Never Die Chrome Extension
 
-**Last Updated: 2026-04-16**
+**Last Updated: 2026-04-24**
 
 ---
 
@@ -36,11 +36,19 @@ The Extension does **not** collect, store, transmit, or share any of the followi
 
 ### 3-2. Non-Sensitive Extension Settings
 
-- **What**: User preferences such as selected programming language, AI model provider choice, and output comparison options (e.g., ignore whitespace).
+- **What**: User preferences such as selected programming language, default language, AI model provider choice, GitHub repository name, and output comparison options (e.g., ignore whitespace).
 - **How it is stored**: Saved locally via `chrome.storage.sync` (Chrome's built-in storage). This data may be synchronized across the user's own Chrome devices if Chrome Sync is enabled by the user.
-- **What it does NOT include**: AI API Keys are explicitly excluded from this storage.
+- **What it does NOT include**: AI API Keys and GitHub OAuth tokens are explicitly excluded from this storage.
 
-### 3-3. Community-Submitted Test Cases (Optional)
+### 3-3. GitHub OAuth Token (Authentication Credential)
+
+- **What**: A GitHub OAuth access token obtained through the standard OAuth 2.0 authorization flow when the user clicks "Authorize with GitHub".
+- **How it is stored**: Stored locally via `chrome.storage.local` (Chrome's built-in local storage). It is **never synced across devices** and is only accessible to this extension.
+- **When it is deleted**: When the user clicks "연동 해제" (Disconnect) in the Extension settings, or when the extension is uninstalled.
+- **Where it is sent**: Directly to the GitHub API (`api.github.com`) solely for the purpose of pushing solved code to the user's chosen repository. The developer has no access to this token.
+- **Scope**: The token is granted `repo` scope to enable repository read/write access. Users can revoke this at any time from their GitHub Settings → Applications.
+
+### 3-4. Community-Submitted Test Cases (Optional)
 
 - **What**: When a user voluntarily submits a test case (feedback), the following data is stored in the developer's Supabase database:
   - Problem number (e.g., `1000`)
@@ -53,7 +61,7 @@ The Extension does **not** collect, store, transmit, or share any of the followi
 - **Retention**: Submitted data is retained indefinitely to serve the community database feature. Data is not linked to any personal identity.
 - **Note**: Do **not** submit any personal information in the description or nickname fields.
 
-### 3-4. Problem Page Content (Transient)
+### 3-5. Problem Page Content (Transient)
 
 - **What**: When the user opens a BOJ problem page with the Extension active, the Extension reads the following data directly from the current browser tab's DOM: problem number, title, time limit, memory limit, and sample input/output.
 - **How it is used**: This data is processed entirely in the user's local browser memory solely to enable the grading feature. It is never logged, stored permanently, or sent to any server operated by the developer.
@@ -70,7 +78,9 @@ The Extension communicates with the following third-party services. Each service
 | Anthropic Claude API | AI-powered hidden test case generation (user's own API key) | [https://www.anthropic.com/privacy](https://www.anthropic.com/privacy) |
 | Google Gemini API | AI-powered hidden test case generation (user's own API key) | [https://policies.google.com/privacy](https://policies.google.com/privacy) |
 | OpenAI API | AI-powered hidden test case generation (user's own API key) | [https://openai.com/privacy](https://openai.com/privacy) |
-| Supabase | Community test case database (via serverless Edge Function) | [https://supabase.com/privacy](https://supabase.com/privacy) |
+| GitHub API | Pushing solved code to the user's GitHub repository (user-authorized OAuth token) | [https://docs.github.com/en/site-policy/privacy-policies](https://docs.github.com/en/site-policy/privacy-policies) |
+| solved.ac API | Fetching problem difficulty tier and category tags (public, no auth required) | [https://solved.ac](https://solved.ac) |
+| Supabase | Community test case database and OAuth token exchange (via serverless Edge Function) | [https://supabase.com/privacy](https://supabase.com/privacy) |
 
 > **Important**: The AI APIs are called using **the user's own API key**. The developer has no access to any API key and bears no responsibility for any costs or usage incurred on the user's AI provider account.
 
